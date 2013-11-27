@@ -12,10 +12,10 @@ import org.elasticsearch.river.RiverName;
 import org.elasticsearch.river.RiverSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
-
 import static org.elasticsearch.common.xcontent.support.XContentMapValues.*;
 
 /**
@@ -29,6 +29,9 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     static final String DEFAULT_REDIS_CHANNELS = "elasticsearch";
     static final String DEFAULT_REDIS_HOSTNAME = "localhost";
     static final String DEFAULT_REDIS_KEYS = "";
+    static final String DEFAULT_INDEXER = "single";
+	private static final int DEFAULT_BATCH_SIZE = 100;
+	private static final int DEFAULT_BULK_TIMEOUT = 60;
 
     private static Logger logger = LoggerFactory.getLogger(RedisSubscriber.class);
 
@@ -42,11 +45,16 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     private final String messageField;
     private final boolean json;
     private final RedisIndexer indexer;
+    private final String indexerType;
+    
+	private long bulkTimeout;
+	private int batchSize;
 
     final RiverSettings settings;
     final Client client;
     RedisSubscriber subscriber;
     Thread thread;
+
 
     @Inject
     public RedisDriver(RiverName riverName, RiverSettings settings, @RiverIndexName final String riverIndexName, final Client client) {
@@ -61,17 +69,31 @@ public class RedisDriver extends AbstractRiverComponent implements River {
         channels = nodeStringValue(extractValue("redis.channels", settings.settings()), DEFAULT_REDIS_CHANNELS).split(",");
         database = nodeIntegerValue(extractValue("redis.database", settings.settings()), 0);
         password = nodeStringValue(extractValue("redis.password", settings.settings()), null);
+        
+        indexerType = nodeStringValue(extractValue("indexer.type", settings.settings()), DEFAULT_INDEXER);
+        
+        batchSize = nodeIntegerValue(extractValue("indexer.batch_size", settings.settings()), DEFAULT_BATCH_SIZE);
+        bulkTimeout = nodeIntegerValue(extractValue("indexer.bulk_timeout", settings.settings()), DEFAULT_BULK_TIMEOUT);
+
         messageField = nodeStringValue(extractValue("redis.messageField", settings.settings()), DEFAULT_REDIS_MESSAGE_FIELD);
         json = nodeBooleanValue(extractValue("redis.json", settings.settings()), false);
         index = nodeStringValue(extractValue("index.name", settings.settings()), DEFAULT_REDIS_INDEX);
-
+        
         logger.debug("Redis settings [hostname={}, port={}, database={}]", new Object[]{hostname, port, database});
         logger.debug("River settings [indexName={}, channels={}, messageField={}, json={}]", new Object[]{index,
                 channels,
                 messageField,
                 json});
 
-        indexer = new RedisIndexer(client, index, json, messageField);
+        indexer = initIndexer();
+    }
+    
+    RedisIndexer initIndexer() {
+    	if (indexerType == "bulk") {
+       		return new RedisBulkIndexer(client, bulkTimeout, batchSize);
+    	}
+    	
+    	return new RedisSingleIndexer(client, index, json, messageField);
     }
 
     @Override

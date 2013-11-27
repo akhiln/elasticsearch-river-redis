@@ -14,14 +14,14 @@ import static org.mockito.Mockito.verify;
 /**
  * @author Stephen Samuel
  */
-public class RedisIndexerTest {
+public class RedisSingleIndexerTest {
 
     Client client = mock(Client.class);
 
     @Test
     public void messageIsIndexedUsingTheChannelAndMessageBody() throws InterruptedException {
 
-        RedisIndexer indexer = new RedisIndexer(client, "myindex", false, "mf");
+        RedisSingleIndexer indexer = new RedisSingleIndexer(client, "myindex", false, "mf");
 
         IndexRequestBuilder builder = mock(IndexRequestBuilder.class);
         Mockito.when(client.prepareIndex("myindex", "chan4")).thenReturn(builder);
@@ -42,7 +42,7 @@ public class RedisIndexerTest {
     @Test
     public void messageIsIndexedAsJsonWhenSpecified() throws InterruptedException {
 
-        RedisIndexer indexer = new RedisIndexer(client, "myindex", true, "mf");
+        RedisSingleIndexer indexer = new RedisSingleIndexer(client, "myindex", true, "mf");
 
         IndexRequestBuilder builder = mock(IndexRequestBuilder.class);
         Mockito.when(client.prepareIndex("myindex", "chan4")).thenReturn(builder);
@@ -60,7 +60,7 @@ public class RedisIndexerTest {
 
     @Test
     public void shutdownKillsThread() throws InterruptedException {
-        RedisIndexer indexer = new RedisIndexer(client, "myindex", false, "mf");
+        RedisSingleIndexer indexer = new RedisSingleIndexer(client, "myindex", false, "mf");
         Thread thread = new Thread(indexer);
         thread.start();
         indexer.shutdown();
