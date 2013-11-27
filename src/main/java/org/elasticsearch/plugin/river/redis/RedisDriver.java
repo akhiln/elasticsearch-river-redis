@@ -89,7 +89,8 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     }
     
     RedisIndexer initIndexer() {
-    	if (indexerType == "bulk") {
+    	logger.debug("Initialize indexer for {}", indexerType);
+    	if (indexerType.equals("bulk")) {
        		return new RedisBulkIndexer(client, bulkTimeout, batchSize);
     	}
     	
