@@ -70,7 +70,8 @@ class RedisBulkIndexer implements RedisIndexer {
 
     void queueMessage(String msg) throws Exception {
         logger.debug("Adding to request... {}", msg);
-    	requestBuilder.add(msg.getBytes(), 0, msg.length(), false);
+    	requestBuilder.add(msg.getBytes(), 0, msg.getBytes().length, false);
+
     	processBulkRequest(false);
     }
     
