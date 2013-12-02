@@ -42,7 +42,6 @@ class RedisSingleIndexer implements RedisIndexer {
 
     @Override
     public void run() {
-        logger.debug("Starting indexer");
         while (true) {
             try {
                 String[] msg = queue.take();

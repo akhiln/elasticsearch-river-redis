@@ -44,7 +44,6 @@ class RedisBulkIndexer implements RedisIndexer {
 
     @Override
     public void run() {
-        logger.debug("Starting indexer");
         while (true) {
             try {
                 String[] msg = queue.poll(timeout, TimeUnit.SECONDS);
@@ -76,7 +75,8 @@ class RedisBulkIndexer implements RedisIndexer {
     }
     
     void processBulkRequest(boolean force) {
-    	if (force || requestBuilder.numberOfActions() >= requestSize) {
+    	int numActions = requestBuilder.numberOfActions();
+    	if ((force && numActions > 0) || numActions >= requestSize) {
     		logger.debug("executing bulk request...");
 			BulkResponse response = requestBuilder.execute().actionGet();
 			if(response.hasFailures()){

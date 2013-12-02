@@ -46,6 +46,8 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     private final boolean json;
     private final RedisIndexer indexer;
     private final String indexerType;
+    private final String subscriberType;
+
     
 	private long bulkTimeout;
 	private int batchSize;
@@ -53,7 +55,8 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     final RiverSettings settings;
     final Client client;
     RedisSubscriber subscriber;
-    Thread thread;
+    Thread indexerThread;
+    Thread subscriberThread;
 
 
     @Inject
@@ -71,6 +74,8 @@ public class RedisDriver extends AbstractRiverComponent implements River {
         password = nodeStringValue(extractValue("redis.password", settings.settings()), null);
         
         indexerType = nodeStringValue(extractValue("indexer.type", settings.settings()), DEFAULT_INDEXER);
+        subscriberType = nodeStringValue(extractValue("indexer.subscriber_type", settings.settings()), DEFAULT_INDEXER);
+
         
         batchSize = nodeIntegerValue(extractValue("indexer.batch_size", settings.settings()), DEFAULT_BATCH_SIZE);
         bulkTimeout = nodeIntegerValue(extractValue("indexer.bulk_timeout", settings.settings()), DEFAULT_BULK_TIMEOUT);
@@ -86,6 +91,7 @@ public class RedisDriver extends AbstractRiverComponent implements River {
                 json});
 
         indexer = initIndexer();
+        subscriber = initSubscriber();
     }
     
     RedisIndexer initIndexer() {
@@ -96,10 +102,19 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     	
     	return new RedisSingleIndexer(client, index, json, messageField);
     }
+    
+    RedisSubscriber initSubscriber() {
+    	logger.debug("Initialize subscriber for {}", subscriberType);
+        final JedisPool pool = getJedisPool();
+    	if (subscriberType.equals("list")) {
+       		return new RedisListSubscriber(pool, channels, indexer);
+    	}
+    	return new RedisPubSubSubscriber(pool, channels, indexer);
+    }
 
     @Override
     public void start() {
-        logger.info("Starting redis subscriber");
+        logger.info("Starting redis river");
 
         try {
             ensureIndexCreated();
@@ -110,20 +125,29 @@ public class RedisDriver extends AbstractRiverComponent implements River {
 
         try {
 
-            subscriber = new RedisSubscriber(settings, indexer);
-            startSubscriberThread(subscriber);
+        	initThreads();
 
         } catch (Exception e) {
             logger.debug("Could not create redis pool. Disabling river");
         }
     }
+    
+    void initThreads() {
+    	logger.debug("Initializing threads...");
+    	startIndexerThread();
+    	startSubscriberThread();
+    }
 
-    void startSubscriberThread(RedisSubscriber subscriber) {
-        // this has to run on a separate thread because redis subscription method blocks
-        final JedisPool pool = getJedisPool();
-        final RedisSubscriptionTask task = new RedisSubscriptionTask(pool, subscriber, channels);
-        thread = EsExecutors.daemonThreadFactory(settings.globalSettings(), "redis_subscription").newThread(task);
-        thread.start();
+    void startIndexerThread() {
+    	logger.debug("Initializing indexer...");
+    	indexerThread = EsExecutors.daemonThreadFactory(settings.globalSettings(), "redis_indexer").newThread(indexer);
+    	indexerThread.start();
+    }
+    
+    void startSubscriberThread() {
+    	logger.debug("Initializing subscriber...");
+    	subscriberThread = EsExecutors.daemonThreadFactory(settings.globalSettings(), "redis_subscription").newThread(subscriber);
+        subscriberThread.start();
     }
 
     JedisPool getJedisPool() {
@@ -148,8 +172,7 @@ public class RedisDriver extends AbstractRiverComponent implements River {
 
     @Override
     public void close() {
-        if (subscriber != null && subscriber.isSubscribed())
-            subscriber.unsubscribe();
+    	
     }
 
     public String getPassword() {

@@ -1,52 +1,52 @@
 package org.elasticsearch.plugin.river.redis;
 
-import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.river.RiverSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.JedisPubSub;
+
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 /**
  * @author Stephen Samuel
  */
-public class RedisSubscriber extends JedisPubSub {
+abstract class RedisSubscriber implements Runnable {
 
     private static Logger logger = LoggerFactory.getLogger(RedisSubscriber.class);
-    final RedisIndexer indexer;
 
-    public RedisSubscriber(RiverSettings settings, RedisIndexer indexer) {
+    private final RedisIndexer indexer;
+    private final JedisPool pool;
+    private final String[] channels;
+
+    public RedisSubscriber(JedisPool pool, String[] channels, RedisIndexer indexer) {
+        this.pool = pool;
         this.indexer = indexer;
-        EsExecutors.daemonThreadFactory(settings.globalSettings(), "redis_indexer").newThread(indexer).start();
+        this.channels = channels;
     }
 
-    @Override
-    public void onMessage(String channel, String message) {
-        logger.debug("Message received [channel={} msg={}]", channel, message);
-        indexer.index(channel, message);
-    }
+	public void run() {
+		try {
+			Jedis jedis = getPool().getResource();
+			logger.debug("Subscribing to channels [{}]", getChannels());
+			fetchMessage(jedis);
+			logger.debug("Subscribe completed; closing down");
+			getPool().returnResource(jedis);
+		} catch (Exception e) {
+			logger.warn("Error running subscriber task {}", e);
+		}
+	}
+	
+	protected abstract void fetchMessage(Jedis jedis);
 
-    @Override
-    public void onPMessage(String pattern, String channel, String message) {
-        logger.debug("Message received [channel={} msg={}]", channel, message);
-        indexer.index(channel, message);
-    }
+	public RedisIndexer getIndexer() {
+		return indexer;
+	}
 
-    @Override
-    public void onSubscribe(String channel, int subscribedChannels) {
-    }
+	public JedisPool getPool() {
+		return pool;
+	}
 
-    @Override
-    public void onUnsubscribe(String channel, int subscribedChannels) {
-        indexer.shutdown();
-    }
-
-    @Override
-    public void onPUnsubscribe(String pattern, int subscribedChannels) {
-        indexer.shutdown();
-    }
-
-    @Override
-    public void onPSubscribe(String pattern, int subscribedChannels) {
-    }
+	public String[] getChannels() {
+		return channels;
+	}
+    
 }
-

@@ -28,7 +28,7 @@ public class RedisSubscriptionTaskTest {
 
     @Test
     public void whenRunningTheSubscriptionUsesTheGivenChannels() {
-        RedisSubscriptionTask task = new RedisSubscriptionTask(pool, subscriber, channels);
+        RedisSubscriber task = new RedisSubscriber(pool, subscriber, channels);
         task.run();
         verify(jedis).subscribe(subscriber, channels);
     }
@@ -46,7 +46,7 @@ public class RedisSubscriptionTaskTest {
             }
         }).when(jedis).subscribe(subscriber, channels);
 
-        RedisSubscriptionTask task = new RedisSubscriptionTask(pool, subscriber, channels);
+        RedisSubscriber task = new RedisSubscriber(pool, subscriber, channels);
         Thread thread = new Thread(task);
         thread.start();
 
@@ -59,7 +59,7 @@ public class RedisSubscriptionTaskTest {
 
     @Test
     public void resourceIsReturnedWhenSubscribeReturns() {
-        RedisSubscriptionTask task = new RedisSubscriptionTask(pool, subscriber, channels);
+        RedisSubscriber task = new RedisSubscriber(pool, subscriber, channels);
         task.run();
         verify(pool).returnResource(jedis);
     }
