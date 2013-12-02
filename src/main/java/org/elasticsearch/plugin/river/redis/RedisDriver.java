@@ -37,27 +37,28 @@ public class RedisDriver extends AbstractRiverComponent implements River {
 
     private final String hostname;
     private final String password;
-    private final String index;
     private final String[] channels;
     private final String[] keys;
     private final int port;
     private final int database;
-    private final String messageField;
-    private final boolean json;
-    private final RedisIndexer indexer;
+
     private final String indexerType;
     private final String subscriberType;
 
+    private final RedisIndexer indexer;
+    private final RedisSubscriber subscriber;
     
 	private long bulkTimeout;
 	private int batchSize;
+	
+    private final String index;
+    private final String messageField;
+    private final boolean json;
 
     final RiverSettings settings;
     final Client client;
-    RedisSubscriber subscriber;
     Thread indexerThread;
     Thread subscriberThread;
-
 
     @Inject
     public RedisDriver(RiverName riverName, RiverSettings settings, @RiverIndexName final String riverIndexName, final Client client) {
@@ -76,7 +77,6 @@ public class RedisDriver extends AbstractRiverComponent implements River {
         indexerType = nodeStringValue(extractValue("indexer.type", settings.settings()), DEFAULT_INDEXER);
         subscriberType = nodeStringValue(extractValue("indexer.subscriber_type", settings.settings()), DEFAULT_INDEXER);
 
-        
         batchSize = nodeIntegerValue(extractValue("indexer.batch_size", settings.settings()), DEFAULT_BATCH_SIZE);
         bulkTimeout = nodeIntegerValue(extractValue("indexer.bulk_timeout", settings.settings()), DEFAULT_BULK_TIMEOUT);
 
@@ -124,9 +124,7 @@ public class RedisDriver extends AbstractRiverComponent implements River {
         }
 
         try {
-
         	initThreads();
-
         } catch (Exception e) {
             logger.debug("Could not create redis pool. Disabling river");
         }
@@ -172,7 +170,8 @@ public class RedisDriver extends AbstractRiverComponent implements River {
 
     @Override
     public void close() {
-    	
+    	logger.debug("Shutting down river...");
+    	subscriber.shutdown();
     }
 
     public String getPassword() {

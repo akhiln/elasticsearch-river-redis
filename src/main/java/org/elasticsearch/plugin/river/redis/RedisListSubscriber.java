@@ -25,8 +25,10 @@ public class RedisListSubscriber extends RedisSubscriber {
 	protected void fetchMessage(Jedis jedis) {
 		while(running) {
 			List<String> msg = jedis.blpop(100, getChannels());
-			getIndexer().index(msg.get(0), msg.get(1));
+			if (msg != null)
+				getIndexer().index(msg.get(0), msg.get(1));
 		}
+		getIndexer().shutdown();
 	}
 	
 	public void shutdown() {

@@ -21,8 +21,11 @@ public class RedisPubSubSubscriber extends RedisSubscriber {
 	}
 	
 	public void shutdown() {
-        if (listener != null && listener.isSubscribed())
+        if (listener != null && listener.isSubscribed()) {
         	listener.unsubscribe();
+        } else {
+        	getIndexer().shutdown();
+        }
 	}
 
 }

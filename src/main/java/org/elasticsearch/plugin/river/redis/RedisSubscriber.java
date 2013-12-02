@@ -36,6 +36,8 @@ abstract class RedisSubscriber implements Runnable {
 	}
 	
 	protected abstract void fetchMessage(Jedis jedis);
+	
+	public abstract void shutdown();
 
 	public RedisIndexer getIndexer() {
 		return indexer;
