@@ -42,11 +42,11 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     private final int port;
     private final int database;
 
-    private final String indexerType;
-    private final String subscriberType;
+    String indexerType;
+    String subscriberType;
 
-    private final RedisIndexer indexer;
-    private final RedisSubscriber subscriber;
+    RedisIndexer indexer;
+    RedisSubscriber subscriber;
     
 	private long bulkTimeout;
 	private int batchSize;
@@ -99,7 +99,6 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     	if (indexerType.equals("bulk")) {
        		return new RedisBulkIndexer(client, bulkTimeout, batchSize);
     	}
-    	
     	return new RedisSingleIndexer(client, index, json, messageField);
     }
     
@@ -171,7 +170,8 @@ public class RedisDriver extends AbstractRiverComponent implements River {
     @Override
     public void close() {
     	logger.debug("Shutting down river...");
-    	subscriber.shutdown();
+    	if(subscriber != null)
+    		subscriber.shutdown();
     }
 
     public String getPassword() {

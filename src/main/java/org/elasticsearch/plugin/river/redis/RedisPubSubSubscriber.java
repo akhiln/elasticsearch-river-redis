@@ -9,7 +9,7 @@ import redis.clients.jedis.JedisPool;
 public class RedisPubSubSubscriber extends RedisSubscriber {
 	
     private static Logger logger = LoggerFactory.getLogger(RedisPubSubSubscriber.class);
-    private RiverPubSubListener listener;
+    RiverPubSubListener listener;
 
 	public RedisPubSubSubscriber(JedisPool pool, String[] channels, RedisIndexer indexer) {
 		super(pool, channels, indexer);

@@ -64,6 +64,35 @@ public class RedisDriverTest {
         assertEquals(0, driver.getDatabase());
         assertEquals(false, driver.isJson());
     }
+    
+    @Test
+    public void initIndexerShouldPickSingleIndexer() {
+    	driver.indexer = driver.initIndexer();
+    	assertTrue(driver.indexer instanceof RedisSingleIndexer);
+    }
+    
+    @Test
+    public void initIndexerShouldPickBulkIndexer() {
+    	driver.indexerType = "bulk";
+    	driver.indexer = driver.initIndexer();
+    	assertTrue(driver.indexer instanceof RedisBulkIndexer);
+    }
+    
+    
+    @Test
+    public void initSubscriberShouldPickPubSubSubscriber() {
+    	driver.indexer = driver.initIndexer();
+    	driver.subscriber = driver.initSubscriber();
+    	assertTrue(driver.subscriber instanceof RedisPubSubSubscriber);
+    }
+    
+    @Test
+    public void initSubscriberShouldPickListSubscriber() {
+    	driver.subscriberType = "list";
+    	driver.indexer = driver.initIndexer();
+    	driver.subscriber = driver.initSubscriber();
+    	assertTrue(driver.subscriber instanceof RedisListSubscriber);
+    }
 
     @Test
     public void closeOnNullSubscriberDoesNotThrowException() {
@@ -72,11 +101,10 @@ public class RedisDriverTest {
     }
 
     @Test
-    public void closeOnUnsubscribedSubscriberDoesNotInvokeUnsub() {
-        driver.subscriber = mock(RedisSubscriber.class);
-        when(driver.subscriber.isSubscribed()).thenReturn(false);
+    public void closeShouldBePassedOnToSubscriber() {
+        driver.subscriber = mock(RedisPubSubSubscriber.class);
         driver.close();
-        Mockito.verify(driver.subscriber, never()).unsubscribe();
+        Mockito.verify(driver.subscriber, times(1)).shutdown();
     }
 
     @Test
@@ -93,11 +121,12 @@ public class RedisDriverTest {
     public void whenAnExceptionIsThrownInIndexSetupThenRiverStops() {
         when(client.admin()).thenThrow(new RuntimeException());
         driver.start();
-        assertNull(driver.subscriber);
+        assertNull(driver.indexerThread);
+        assertNull(driver.subscriberThread);
     }
 
     @Test
-    public void whenStartingTheSubscriptionThreadIsStarted() {
+    public void whenStartingTheSubscriberAndIndexerThreadIsStarted() {
 
         AdminClient adminClient = mock(AdminClient.class);
         when(client.admin()).thenReturn(adminClient);
@@ -108,9 +137,9 @@ public class RedisDriverTest {
         ListenableActionFuture future = mock(ListenableActionFuture.class);
         when(builder.execute()).thenReturn(future);
 
-        driver.subscriber = null;
+        driver.subscriberThread = null;
         driver.start();
-        assertNotNull(driver.subscriber);
-        assertNotNull(driver.thread);
+        assertNotNull(driver.subscriberThread);
+        assertNotNull(driver.indexerThread);
     }
 }

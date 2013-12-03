@@ -15,10 +15,10 @@ import static org.mockito.Mockito.*;
 /**
  * @author Stephen Samuel
  */
-public class RedisSubscriptionTaskTest {
+public class RedisPubSubSubscriberTest {
 
     JedisPool pool = mock(JedisPool.class);
-    RedisSubscriber subscriber = mock(RedisSubscriber.class);
+    RedisIndexer indexer = mock(RedisIndexer.class);
     String[] channels = {"a", "b"};
     Jedis jedis = mock(Jedis.class);
 
@@ -28,13 +28,14 @@ public class RedisSubscriptionTaskTest {
 
     @Test
     public void whenRunningTheSubscriptionUsesTheGivenChannels() {
-        RedisSubscriber task = new RedisSubscriber(pool, subscriber, channels);
-        task.run();
-        verify(jedis).subscribe(subscriber, channels);
+    	RedisPubSubSubscriber subscriber = new RedisPubSubSubscriber(pool, channels, indexer);
+        subscriber.run();
+        verify(jedis).subscribe(subscriber.listener, channels);
     }
 
     @Test
     public void taskBlocksUntilSubscribeReturns() throws InterruptedException {
+    	RedisPubSubSubscriber subscriber = new RedisPubSubSubscriber(pool, channels, indexer);
 
         final CountDownLatch latch = new CountDownLatch(1);
 
@@ -44,10 +45,9 @@ public class RedisSubscriptionTaskTest {
                 latch.await();
                 return null;
             }
-        }).when(jedis).subscribe(subscriber, channels);
+        }).when(jedis).subscribe(subscriber.listener, channels);
 
-        RedisSubscriber task = new RedisSubscriber(pool, subscriber, channels);
-        Thread thread = new Thread(task);
+        Thread thread = new Thread(subscriber);
         thread.start();
 
         Thread.sleep(200);
@@ -59,8 +59,8 @@ public class RedisSubscriptionTaskTest {
 
     @Test
     public void resourceIsReturnedWhenSubscribeReturns() {
-        RedisSubscriber task = new RedisSubscriber(pool, subscriber, channels);
-        task.run();
+    	RedisPubSubSubscriber subscriber = new RedisPubSubSubscriber(pool, channels, indexer);
+    	subscriber.run();
         verify(pool).returnResource(jedis);
     }
 }
